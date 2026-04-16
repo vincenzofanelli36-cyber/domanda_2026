@@ -797,9 +797,32 @@ const CONFIG = {
   document.getElementById('btnInvia').addEventListener('click',function(){
     const {ok,msgs}=valida();
     if(!ok){mostraMsg('errore-msg','⚠ '+msgs.join(' – '));return;}
-    // ── Collegamento backend Google Apps Script (prossimo passo) ──
-    mostraMsg('successo','✓ '+CONFIG.messaggi.successo);
-  });
+    
+    mostraMsg('successo','Invio in corso... attendi la conferma.');
+
+    const dati = {
+      grado: document.getElementById('grado').value,
+      cognome: document.getElementById('cognome').value,
+      nome: document.getElementById('nome').value,
+      email: document.getElementById('email').value,
+      telefono: document.getElementById('telefono').value
+    };
+
+    fetch("https://script.google.com/macros/s/AKfycby-jk4zZGyrkN8ztkLgMd4P9WR3nbp5LT2rs5NA4GG6s7JwWaGK0p_j-T605af-yTEC/exec", {
+      method: "POST",
+      mode: "no-cors", 
+      cache: "no-cache",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dati)
+    })
+    .then(() => {
+      mostraMsg('successo','✓ ' + CONFIG.messaggi.successo);
+      setTimeout(() => { location.reload(); }, 3000);
+    })
+    .catch(err => {
+      mostraMsg('errore-msg','⚠ Errore nell\'invio. Riprova più tardi.');
+      console.error(err);
+    });
 
   document.getElementById('btnStampa').addEventListener('click',function(){
     const {ok,msgs}=valida();
