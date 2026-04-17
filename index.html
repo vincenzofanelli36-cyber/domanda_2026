@@ -271,12 +271,14 @@
 <body>
 
 <script>
+  // Scoraggia il salvataggio del file tramite scorciatoie da tastiera
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && (e.key==='s'||e.key==='u')) e.preventDefault();
   });
 </script>
 
+<!-- ══ INTESTAZIONE ══ -->
 <div class="intestazione">
   <div class="intestazione-titolo">Richiesta di Tesseramento – Stagione 2026</div>
   <div class="intestazione-sottotitolo">Distaccamento Straordinario A.M. di Torre a Mare</div>
@@ -285,6 +287,7 @@
 
 <div class="form-wrap">
 
+  <!-- ══ 1 – DATI TITOLARE ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Dati del Titolare</div>
     <div class="griglia g-grado">
@@ -306,6 +309,7 @@
     </div>
   </div>
 
+  <!-- ══ 2 – STATO DI SERVIZIO ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Stato di Servizio</div>
     <div class="radio-group">
@@ -356,6 +360,7 @@
     </div>
   </div>
 
+  <!-- ══ 3 – DOCUMENTI ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Documenti</div>
     <div class="griglia g2">
@@ -370,8 +375,8 @@
         <p class="nota-campo" id="notaDocumento">Obbligatorio per quiescenza, vedovo/a e altro</p>
       </div>
       <div>
-        <div class="campo"><label>Foto tessera (JPG/PNG – max 5 MB)</label></div>
-        <div class="upload-wrap">
+        <div class="campo"><label>Foto tessera (JPG/PNG – max 5 MB) <span class="obbligatorio">*</span></label></div>
+        <div class="upload-wrap" id="wrapFoto">
           <input type="file" id="foto" accept="image/jpeg,image/png,image/gif">
           <div class="upload-icon">📷</div>
           <div class="upload-testo">Clicca per allegare la foto tessera</div>
@@ -382,6 +387,7 @@
     </div>
   </div>
 
+  <!-- ══ 4 – VEICOLI ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Autoveicoli / Ciclomotori (facoltativo)</div>
     <div class="griglia g-auto">
@@ -396,6 +402,7 @@
     </div>
   </div>
 
+  <!-- ══ 5 – NUCLEO FAMILIARE ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Nucleo Familiare</div>
     <div class="dichiarazione-nucleo">
@@ -411,12 +418,14 @@
 
   <hr class="divider">
 
+  <!-- ══ 6 – DICHIARAZIONI ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Dichiarazioni Finali</div>
     <div style="font-size:13px;color:var(--testo-soft);margin-bottom:14px">All'uopo dichiara:</div>
     <ul class="dichiarazioni-lista" id="dichiarazioniLista"></ul>
   </div>
 
+  <!-- ══ 7 – FIRMA ══ -->
   <div class="sezione">
     <div class="sezione-titolo">Firma</div>
     <div class="firma-wrap">
@@ -438,6 +447,7 @@
     </div>
   </div>
 
+  <!-- ══ AZIONI ══ -->
   <div class="azioni-wrap">
     <button type="button" class="btn btn-stampa" id="btnStampa" style="display:none">🖨 Stampa modulo</button>
     <button type="button" class="btn btn-invia"  id="btnInvia"  style="display:none">✉ Invia domanda</button>
@@ -449,8 +459,15 @@
 
 </div>
 
+<!-- ══════════════════════════════════════════════════════
+     C O N F I G  –  modifica solo questo blocco
+════════════════════════════════════════════════════════ -->
 <script>
 const CONFIG = {
+
+  // ── FF.AA. / CORPI ──────────────────────────────────────────────────
+  // "invia"  → l'utente vedrà il pulsante INVIA (invio diretto)
+  // "stampa" → l'utente vedrà il pulsante STAMPA (timbro Capo Reparto)
   forzeArmate: [
     { nome: "Aeronautica Militare",  modalita: "invia"  },
     { nome: "Esercito Italiano",     modalita: "invia"  },
@@ -462,8 +479,16 @@ const CONFIG = {
     { nome: "Vigili del Fuoco",      modalita: "stampa" },
     { nome: "Altro Corpo",           modalita: "stampa" }
   ],
+
+  // ── PERIODI ─────────────────────────────────────────────────────────
+  // "Nessuno" deve restare come prima voce. Aggiungi turni liberamente.
   periodi: ["Nessuno", "Intero", "Turno 1", "Turno 2"],
+
+  // ── EMAIL DESTINATARIO ───────────────────────────────────────────────
+  // *** SOSTITUISCI CON IL TUO INDIRIZZO GMAIL ***
   emailDestinatario: "vincenzofanelli36@gmail.com",
+
+  // ── DICHIARAZIONI ───────────────────────────────────────────────────
   dichiarazioni: [
     "di esonerare l'amministrazione A.M. da qualsiasi responsabilità in caso di incidenti o sinistri che possano accadere a sé ed ai propri familiari durante la permanenza presso il Centro;",
     "che gli automezzi/ciclomotori sopra riportati siano in regola con le norme di circolazione;",
@@ -471,35 +496,48 @@ const CONFIG = {
     "di prestare il proprio consenso al trattamento dei dati personali ai sensi del Reg. UE 679/2016 (GDPR) e del D.Lgs. 196/2003 come modificato dal D.Lgs. 101/2018;",
     "di aver letto, compreso e accettato quanto previsto dalla circolare e dalle norme comportamentali del Distaccamento."
   ],
+
   campiObbligatoriTitolare: ["grado","cognome","nome","email","telefono","residente_a","provincia","indirizzo"],
+
+  // ── LIMITI FILE ──────────────────────────────────────────────────────
   maxFileSizeMB:    5,
   formatiDocumento: ["image/jpeg","image/png","image/gif","application/pdf"],
   formatiFoto:      ["image/jpeg","image/png","image/gif"],
+
+  // ── MESSAGGI ────────────────────────────────────────────────────────
   messaggi: {
     successo:            "La domanda è stata trasmessa con successo. Riceverai una conferma via email.",
     erroreCampi:         "Compilare tutti i campi obbligatori prima di procedere.",
     erroreDichiarazioni: "È necessario accettare tutte le dichiarazioni finali.",
     erroreFirma:         "È necessario firmare oppure allegare il documento d'identità.",
     erroreDocumento:     "È necessario allegare il documento comprovante richiesto.",
+    erroreFoto:          "È necessario allegare la foto tessera del titolare.",
+    erroreCodiceFiscale: "Il Codice Fiscale deve essere di 16 caratteri alfanumerici.",
     avvisoStampa:        "La tua categoria richiede il visto del Capo Reparto. Stampa il modulo compilato, fallo firmare e timbrare, quindi invialo via email all'indirizzo indicato.",
     avvisoInvia:         "La tua categoria può inviare la domanda direttamente."
   }
 };
 </script>
 
+<!-- ══════════════════════════════════════════════════════
+     L O G I C A
+════════════════════════════════════════════════════════ -->
 <script>
 (function(){
 
+  // ── Popola select FF.AA. ─────────────────────────────────────────────
   function popolaFA(id){
     const s=document.getElementById(id); if(!s)return;
     CONFIG.forzeArmate.forEach(fa=>{ const o=document.createElement('option'); o.value=fa.nome; o.textContent=fa.nome; s.appendChild(o); });
   }
   popolaFA('forza_armata_servizio'); popolaFA('forza_armata_quiescenza'); popolaFA('forza_armata_defunto');
 
+  // ── HTML select periodi ──────────────────────────────────────────────
   function selectPeriodi(id){
     return `<select id="${id}">${CONFIG.periodi.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>`;
   }
 
+  // ── Validazione file ─────────────────────────────────────────────────
   function validaFile(file,formati,maxMB){
     if(!file)return null;
     if(!formati.includes(file.type)) return 'Formato non supportato: usa JPG, PNG o PDF.';
@@ -526,6 +564,7 @@ const CONFIG = {
     else{el.textContent='✓ '+this.files[0].name;prev.src=URL.createObjectURL(this.files[0]);prev.style.display='block';}
   });
 
+  // ── Accompagnamento condizionale (funzioni globali) ──────────────────
   window.toggleAccompagnamento=function(nome){
     const val=document.querySelector(`input[name="acc_${nome}"]:checked`);
     const box=document.getElementById(`acc_doc_${nome}`);
@@ -559,6 +598,7 @@ const CONFIG = {
       </div>`;
   }
 
+  // ── Dichiarazioni ────────────────────────────────────────────────────
   const lista=document.getElementById('dichiarazioniLista');
   CONFIG.dichiarazioni.forEach((t,i)=>{
     const li=document.createElement('li');
@@ -566,14 +606,12 @@ const CONFIG = {
     lista.appendChild(li);
   });
 
+  // ── Stato di servizio ────────────────────────────────────────────────
   document.querySelectorAll('input[name="stato"]').forEach(r=>{
     r.addEventListener('change',function(){
       document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('selezionato'));
       this.closest('.radio-card').classList.add('selezionato');
-      ['in_servizio', 'in_quiescenza', 'vedovo', 'altro'].forEach(s => {
-          const el = document.getElementById('det_' + s);
-          if (el) el.classList.add('nascosto');
-      });
+      ['in_servizio','in_quiescenza','vedovo','altro'].forEach(s=>document.getElementById('det_'+s).classList.add('nascosto'));
       document.getElementById('det_'+this.value).classList.remove('nascosto');
       const rich=['in_quiescenza','vedovo','altro'].includes(this.value);
       document.getElementById('lblDocObbligatorio').style.display=rich?'':'none';
@@ -584,6 +622,7 @@ const CONFIG = {
   ['forza_armata_servizio','forza_armata_quiescenza','forza_armata_defunto'].forEach(id=>
     document.getElementById(id).addEventListener('change',aggiornaPulsanti));
 
+  // ── Firma canvas ─────────────────────────────────────────────────────
   const canvas=document.getElementById('firmaCanvas'),ctx=canvas.getContext('2d');
   let dis=false,firmaOk=false;
   function pos(e){const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*(canvas.width/r.width),y:(s.clientY-r.top)*(canvas.height/r.height)};}
@@ -596,6 +635,7 @@ const CONFIG = {
   canvas.addEventListener('touchend',  ()=>dis=false);
   document.getElementById('btnCancellaFirma').addEventListener('click',()=>{ctx.clearRect(0,0,canvas.width,canvas.height);firmaOk=false;});
 
+  // ── Nucleo familiare ─────────────────────────────────────────────────
   let cnt=0;
 
   function creaRigaTitolare(){
@@ -669,6 +709,7 @@ const CONFIG = {
   cont.appendChild(creaRigaTitolare());
   document.getElementById('btnAggiungiFamiliare').addEventListener('click',()=>{cnt++;cont.appendChild(creaRigaFamiliare(cnt));});
 
+  // ── Pulsanti Invia / Stampa ──────────────────────────────────────────
   function getModalita(){
     const stato=document.querySelector('input[name="stato"]:checked'); if(!stato)return null;
     let nome='';
@@ -690,32 +731,89 @@ const CONFIG = {
     bs.style.display=m==='stampa'?'flex':'none';
   }
 
+  // ── Validazione ──────────────────────────────────────────────────────
   function valida(){
     let ok=true; const msgs=[]; let campiMancanti=false;
+
     CONFIG.campiObbligatoriTitolare.forEach(id=>{
       const el=document.getElementById(id); if(!el)return;
       if(!el.value.trim()){el.classList.add('errore');ok=false;campiMancanti=true;}
       else el.classList.remove('errore');
     });
     if(campiMancanti) msgs.push(CONFIG.messaggi.erroreCampi);
+
     const stato=document.querySelector('input[name="stato"]:checked');
     if(!stato){msgs.push('Selezionare lo stato di servizio.');ok=false;}
+
     if(stato){
       if(stato.value==='in_servizio'){
         ['forza_armata_servizio','ente_localita'].forEach(id=>{const el=document.getElementById(id);if(el&&!el.value.trim()){el.classList.add('errore');ok=false;}});
-      } else {
+      } else if(stato.value==='in_quiescenza'){
+        const el=document.getElementById('forza_armata_quiescenza');
+        if(el&&!el.value){el.classList.add('errore');ok=false;}
+        if(!document.getElementById('documento').files.length){document.getElementById('wrapDocumento').style.borderColor='var(--rosso)';msgs.push(CONFIG.messaggi.erroreDocumento);ok=false;}
+      } else if(stato.value==='vedovo'){
+        ['grado_defunto','cognome_defunto','nome_defunto','forza_armata_defunto'].forEach(id=>{const el=document.getElementById(id);if(el&&!el.value.trim()){el.classList.add('errore');ok=false;}});
+        if(!document.getElementById('documento').files.length){document.getElementById('wrapDocumento').style.borderColor='var(--rosso)';msgs.push(CONFIG.messaggi.erroreDocumento);ok=false;}
+      } else if(stato.value==='altro'){
+        const el=document.getElementById('specificare_altro');if(el&&!el.value.trim()){el.classList.add('errore');ok=false;}
         if(!document.getElementById('documento').files.length){document.getElementById('wrapDocumento').style.borderColor='var(--rosso)';msgs.push(CONFIG.messaggi.erroreDocumento);ok=false;}
       }
     }
-    ['fam_tit_nato_a','fam_tit_nato_il','fam_tit_cf'].forEach(id=>{
+
+    // Campi obbligatori titolare nel nucleo
+    ['fam_tit_nato_a','fam_tit_nato_il'].forEach(id=>{
       const el=document.getElementById(id);
-      if(el&&!el.value.trim()){el.classList.add('errore');ok=false;}
+      if(el&&!el.value.trim()){el.classList.add('errore');ok=false;if(!campiMancanti){msgs.push(CONFIG.messaggi.erroreCampi);campiMancanti=true;}}
+      else if(el) el.classList.remove('errore');
     });
+
+    // Validazione codice fiscale: 16 caratteri alfanumerici
+    function validaCF(cf){ return /^[A-Z0-9]{16}$/.test(cf.toUpperCase().trim()); }
+
+    const cfTit=document.getElementById('fam_tit_cf');
+    if(cfTit){
+      if(!cfTit.value.trim()){cfTit.classList.add('errore');ok=false;if(!campiMancanti){msgs.push(CONFIG.messaggi.erroreCampi);campiMancanti=true;}}
+      else if(!validaCF(cfTit.value)){cfTit.classList.add('errore');ok=false;if(!msgs.includes(CONFIG.messaggi.erroreCodiceFiscale))msgs.push(CONFIG.messaggi.erroreCodiceFiscale);}
+      else cfTit.classList.remove('errore');
+    }
+
+    // Stessa validazione CF per tutti i familiari aggiunti
+    document.querySelectorAll('[id$="_cf"]').forEach(el=>{
+      if(el.id==='fam_tit_cf')return; // già gestito sopra
+      if(!el.value.trim()){el.classList.add('errore');ok=false;}
+      else if(!validaCF(el.value)){el.classList.add('errore');ok=false;if(!msgs.includes(CONFIG.messaggi.erroreCodiceFiscale))msgs.push(CONFIG.messaggi.erroreCodiceFiscale);}
+      else el.classList.remove('errore');
+    });
+
+    // Foto tessera obbligatoria
+    const fotoInput=document.getElementById('foto');
+    if(!fotoInput||!fotoInput.files.length){
+      document.getElementById('wrapFoto').style.borderColor='var(--rosso)';
+      msgs.push(CONFIG.messaggi.erroreFoto); ok=false;
+    } else {
+      document.getElementById('wrapFoto').style.borderColor='';
+    }
+    const pTit=document.getElementById('fam_tit_periodo');
+    if(pTit&&pTit.value==='Nessuno'){pTit.classList.add('errore');ok=false;msgs.push('Selezionare un periodo per il Titolare.');}
+    else if(pTit) pTit.classList.remove('errore');
+
+    // Accompagnamento titolare: se SI serve documento
+    const accTit=document.querySelector('input[name="acc_titolare"]:checked');
+    if(accTit&&accTit.value==='si'){
+      const f=document.getElementById('acc_file_titolare');
+      if(f&&!f.files.length){msgs.push('Allegare documentazione indennità di accompagnamento per il Titolare.');ok=false;}
+    }
+
+    // Dichiarazioni
     let dichOk=true;
     document.querySelectorAll('[data-dich]').forEach(d=>{if(!d.checked)dichOk=false;});
     if(!dichOk){msgs.push(CONFIG.messaggi.erroreDichiarazioni);ok=false;}
+
+    // Firma
     const docId=document.getElementById('docIdentita');
     if(!firmaOk&&(!docId||!docId.files.length)){msgs.push(CONFIG.messaggi.erroreFirma);ok=false;}
+
     return {ok,msgs};
   }
 
@@ -725,10 +823,12 @@ const CONFIG = {
     el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 
-  document.getElementById('btnInvia').addEventListener('click',function(){
+ document.getElementById('btnInvia').addEventListener('click',function(){
     const {ok,msgs}=valida();
     if(!ok){mostraMsg('errore-msg','⚠ '+msgs.join(' – '));return;}
+    
     mostraMsg('successo','Invio in corso... attendi la conferma.');
+
     const dati = {
       grado: document.getElementById('grado').value,
       cognome: document.getElementById('cognome').value,
@@ -736,6 +836,7 @@ const CONFIG = {
       email: document.getElementById('email').value,
       telefono: document.getElementById('telefono').value
     };
+
     fetch("https://script.google.com/macros/s/AKfycby-jk4zZGyrkN8ztkLgMd4P9WR3nbp5LT2rs5NA4GG6s7JwWaGK0p_j-T605af-yTEC/exec", {
       method: "POST",
       mode: "no-cors", 
@@ -751,7 +852,7 @@ const CONFIG = {
       mostraMsg('errore-msg','⚠ Errore tecnico nell\'invio.');
       console.error(err);
     });
-  });
+  });  
 
   document.getElementById('btnStampa').addEventListener('click',function(){
     const {ok,msgs}=valida();
