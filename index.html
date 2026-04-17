@@ -824,14 +824,14 @@ const CONFIG = {
   }
 
  document.getElementById('btnInvia').addEventListener('click', async function(){
-    // 1. Usiamo la TUA funzione di validazione originale
+    // 1. Usiamo la funzione di validazione originale
     const {ok, msgs} = valida();
     if(!ok){
       mostraMsg('errore-msg', '⚠ ' + msgs.join(' – '));
       return;
     }
     
-    mostraMsg('successo', 'Elaborazione allegati e invio in corso... attendi la conferma.');
+    mostraMsg('successo', 'Elaborazione allegati e invio in corso... attendi la conferma (circa 10-15 secondi).');
 
     // Funzione per preparare i file (Foto e Documenti)
     const toBase64 = file => new Promise((resolve, reject) => {
@@ -844,10 +844,20 @@ const CONFIG = {
     // 2. Raccogliamo TUTTI i familiari (anche quelli aggiunti col +)
     let infoFamiliari = "";
     document.querySelectorAll('.familiare-card').forEach((card, index) => {
-      let parente = index === 0 ? "Titolare" : (card.querySelector('select')?.value || "Familiare");
-      let nomeF = card.querySelector('input[id*="nome"]')?.value || "";
-      let cfF = card.querySelector('input[id*="cf"]')?.value || "";
-      if(nomeF) infoFamiliari += `[${parente}: ${nomeF} - CF: ${cfF}] `;
+      let parente = "";
+      if (index === 0) {
+        parente = "Titolare";
+      } else {
+        const sel = card.querySelector('select');
+        parente = sel ? sel.value : "Familiare";
+      }
+      
+      // Cerchiamo i campi all'interno della card corrente
+      const nomeF = card.querySelector('input[id*="_nome"]')?.value || "";
+      const cfF = card.querySelector('input[id*="_cf"]')?.value || "";
+      const natoF = card.querySelector('input[id*="_nato_il"]')?.value || "";
+      
+      if(nomeF) infoFamiliari += `[${parente}: ${nomeF} - CF: ${cfF} - Nato: ${natoF}] `;
     });
 
     // 3. Prepariamo il pacchetto dati completo
@@ -859,13 +869,15 @@ const CONFIG = {
       telefono: document.getElementById('telefono').value,
       residenza: document.getElementById('residente_a').value + " (" + document.getElementById('provincia').value + ") " + document.getElementById('indirizzo').value,
       stato_servizio: document.querySelector('input[name="stato"]:checked')?.value || "",
-      ente: document.getElementById('ente_localita')?.value || "",
-      auto1: document.getElementById('marca_auto1').value + " " + document.getElementById('targa_auto1').value,
-      auto2: document.getElementById('marca_auto2').value + " " + document.getElementById('targa_auto2').value,
+      // Recupero ente in base allo stato selezionato
+      ente: document.getElementById('ente_localita')?.value || document.getElementById('specificare_altro')?.value || "",
+      // Veicoli con ID corretti dal tuo HTML
+      auto1: document.getElementById('marca_auto1').value + " " + document.getElementById('modello_auto1').value + " (" + document.getElementById('targa_auto1').value + ")",
+      auto2: document.getElementById('marca_auto2').value + " " + document.getElementById('modello_auto2').value + " (" + document.getElementById('targa_auto2').value + ")",
       familiari: infoFamiliari
     };
 
-    // 4. Gestione Allegati (se inseriti)
+    // 4. Gestione Allegati
     const fotoInput = document.getElementById('foto');
     if(fotoInput && fotoInput.files[0]) {
       dati.fotoFile = await toBase64(fotoInput.files[0]);
@@ -891,11 +903,11 @@ const CONFIG = {
       body: JSON.stringify(dati)
     })
     .then(() => {
-      mostraMsg('successo', '✓ Domanda inviata con successo! Dati e allegati salvati.');
-      setTimeout(() => { location.reload(); }, 3500);
+      mostraMsg('successo', '✓ Domanda inviata con successo! I dati e gli allegati sono stati registrati.');
+      setTimeout(() => { location.reload(); }, 4000);
     })
     .catch(err => {
-      mostraMsg('errore-msg', '⚠ Errore tecnico durante l\'invio.');
+      mostraMsg('errore-msg', '⚠ Errore tecnico durante l\'invio. Verifica la connessione.');
       console.error(err);
     });
   });
