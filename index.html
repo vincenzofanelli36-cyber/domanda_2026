@@ -965,27 +965,26 @@ const CONFIG = {
     // ── INVIO — text/plain è compatibile con no-cors e Apps Script ──────
     fetch("https://script.google.com/macros/s/AKfycbz2pHMoO-pTJJ4Y2KAsR3I_Abb6WFxn_pGhkDGi4biWAk8gCftpv2cqRSiLVhad1y3t/exec", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
       body: JSON.stringify(dati)
     })
-      .then(res => res.json())
-      .then(res => {
-        if (res.result === "success") {
-          mostraMsg('successo', '✓ Domanda inviata con successo!');
-          setTimeout(() => { location.reload(); }, 5000);
-        } else {
-          document.getElementById('btnInvia').disabled = false;
-          mostraMsg('errore-msg', '⚠ Errore: ' + res.error);
-        }
-      })
-      .catch(err => {
+    .then(res => res.text())
+    .then(text => {
+      const res = JSON.parse(text);
+
+      if (res.result === "success") {
+        mostraMsg('successo', '✓ Domanda inviata con successo!');
+        setTimeout(() => location.reload(), 5000);
+      } else {
         document.getElementById('btnInvia').disabled = false;
-        mostraMsg('errore-msg', '⚠ Errore di connessione o script.');
-        console.error(err);
-      });
+        mostraMsg('errore-msg', '⚠ Errore: ' + res.error);
+      }
+    })
+    .catch(err => {
+      document.getElementById('btnInvia').disabled = false;
+      mostraMsg('errore-msg', '⚠ Errore di connessione o script.');
+      console.error(err);
     });
+  });
 
 })();
 </script>
