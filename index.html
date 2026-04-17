@@ -660,6 +660,16 @@ const CONFIG = {
           <div class="campo"><label>Periodo richiesto <span class="obbligatorio">*</span></label>${selectPeriodi('fam_tit_periodo')}</div>
         </div>
         ${htmlAcc('titolare')}
+        <div id="fotoWrap_titolare" style="display:none;margin-top:12px">
+          <div class="campo"><label>Foto tessera <span class="obbligatorio">*</span></label></div>
+          <div class="upload-wrap" id="uploadFotoWrap_titolare">
+            <input type="file" id="fam_tit_foto" accept="image/jpeg,image/png,image/gif"
+              onchange="validaFotoFam(this,'fam_tit_foto_nome','uploadFotoWrap_titolare')">
+            <div class="upload-icon">📷</div>
+            <div class="upload-testo">Clicca per allegare la foto tessera (JPG/PNG – max 5 MB)</div>
+            <div class="upload-nome" id="fam_tit_foto_nome"></div>
+          </div>
+        </div>
         <div class="campo" style="margin-top:10px"><label>Eventuali note</label><textarea id="fam_tit_note"></textarea></div>
       </div>`;
     return div;
@@ -697,6 +707,16 @@ const CONFIG = {
           <div class="campo"><label>Periodo richiesto <span class="obbligatorio">*</span></label>${selectPeriodi('fam_'+n+'_periodo')}</div>
         </div>
         ${htmlAcc(n)}
+        <div id="fotoWrap_${n}" style="display:none;margin-top:12px">
+          <div class="campo"><label>Foto tessera <span class="obbligatorio">*</span></label></div>
+          <div class="upload-wrap" id="uploadFotoWrap_${n}">
+            <input type="file" id="fam_${n}_foto" accept="image/jpeg,image/png,image/gif"
+              onchange="validaFotoFam(this,'fam_${n}_foto_nome','uploadFotoWrap_${n}')">
+            <div class="upload-icon">📷</div>
+            <div class="upload-testo">Clicca per allegare la foto tessera (JPG/PNG – max 5 MB)</div>
+            <div class="upload-nome" id="fam_${n}_foto_nome"></div>
+          </div>
+        </div>
         <div class="campo" style="margin-top:10px"><label>Eventuali note</label><textarea id="fam_${n}_note"></textarea></div>
       </div>`;
     return div;
@@ -704,6 +724,23 @@ const CONFIG = {
 
   window.toggleFam  = id=>{const b=document.getElementById('body_'+id);if(b)b.style.display=b.style.display==='none'?'':'none';};
   window.rimuoviFam = id=>{const e=document.getElementById(id);if(e)e.remove();};
+
+  // ── Foto familiare: mostra/nasconde in base al periodo ───────────────
+  window.validaFotoFam = function(inp, nomeId, wrapId) {
+    const el=document.getElementById(nomeId); if(!el)return;
+    const err=validaFile(inp.files[0],CONFIG.formatiFoto,CONFIG.maxFileSizeMB);
+    if(err){el.innerHTML=`<span style="color:var(--rosso)">⚠ ${err}</span>`;inp.value='';}
+    else el.textContent='✓ '+inp.files[0].name;
+  };
+
+  // Listener periodo: mostra upload foto solo se periodo != Nessuno
+  // Chiamata sia per titolare che per familiari tramite event delegation
+  document.getElementById('familiariContainer').addEventListener('change', function(e){
+    if(!e.target.id || !e.target.id.endsWith('_periodo') && e.target.id !== 'fam_tit_periodo') return;
+    const id = e.target.id === 'fam_tit_periodo' ? 'titolare' : e.target.id.replace('fam_','').replace('_periodo','');
+    const wrap = document.getElementById('fotoWrap_'+id);
+    if(wrap) wrap.style.display = (e.target.value !== 'Nessuno') ? 'block' : 'none';
+  });
 
   const cont=document.getElementById('familiariContainer');
   cont.appendChild(creaRigaTitolare());
@@ -805,6 +842,27 @@ const CONFIG = {
       if(f&&!f.files.length){msgs.push('Allegare documentazione indennità di accompagnamento per il Titolare.');ok=false;}
     }
 
+    // Foto familiari obbligatoria se periodo != Nessuno
+    document.querySelectorAll('.familiare-card').forEach((card, idx)=>{
+      const periodoId = idx===0 ? 'fam_tit_periodo' : `fam_${card.id.replace('fam_','')}_periodo`;
+      const fotoId    = idx===0 ? 'fam_tit_foto'    : `fam_${card.id.replace('fam_','')}_foto`;
+      const wrapId    = idx===0 ? 'uploadFotoWrap_titolare' : `uploadFotoWrap_${card.id.replace('fam_','')}`;
+      const periodo   = document.getElementById(periodoId)?.value;
+      if(periodo && periodo !== 'Nessuno'){
+        const fotoEl = document.getElementById(fotoId);
+        const wrap   = document.getElementById(wrapId);
+        if(!fotoEl || !fotoEl.files.length){
+          if(wrap) wrap.style.borderColor='var(--rosso)';
+          ok=false;
+          const nome = card.querySelector('[id$="_nome"],[id="fam_tit_nome"]')?.value || 'familiare';
+          if(!msgs.some(m=>m.includes('foto tessera')))
+            msgs.push(`Allegare la foto tessera per ogni componente con periodo di tesseramento selezionato.`);
+        } else {
+          if(wrap) wrap.style.borderColor='';
+        }
+      }
+    });
+
     // Dichiarazioni
     let dichOk=true;
     document.querySelectorAll('[data-dich]').forEach(d=>{if(!d.checked)dichOk=false;});
@@ -824,90 +882,100 @@ const CONFIG = {
   }
 
  document.getElementById('btnInvia').addEventListener('click', async function(){
-    // 1. Usiamo la funzione di validazione originale
     const {ok, msgs} = valida();
-    if(!ok){
-      mostraMsg('errore-msg', '⚠ ' + msgs.join(' – '));
-      return;
-    }
-    
-    mostraMsg('successo', 'Elaborazione allegati e invio in corso... attendi la conferma (circa 10-15 secondi).');
+    if(!ok){ mostraMsg('errore-msg', '⚠ ' + msgs.join(' – ')); return; }
 
-    // Funzione per preparare i file (Foto e Documenti)
-    const toBase64 = file => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = error => reject(error);
+    mostraMsg('successo', '⏳ Elaborazione allegati in corso... attendi (circa 15-20 secondi).');
+    document.getElementById('btnInvia').disabled = true;
+
+    const toBase64 = file => new Promise((res,rej)=>{
+      const r=new FileReader(); r.readAsDataURL(file);
+      r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej;
     });
 
-    // 2. Raccogliamo TUTTI i familiari (anche quelli aggiunti col +)
-    let infoFamiliari = "";
-    document.querySelectorAll('.familiare-card').forEach((card, index) => {
-      let parente = "";
-      if (index === 0) {
-        parente = "Titolare";
+    // ── Raccolta familiari con foto ──────────────────────────────────────
+    const familiariArr = [];
+    const fotoFamiliariArr = [];
+
+    for(const [idx, card] of [...document.querySelectorAll('.familiare-card')].entries()){
+      let parentela, nomeF, cfF, natoA, natoIl, prov, periodo, note;
+      if(idx===0){
+        parentela = 'Titolare';
+        nomeF  = document.getElementById('fam_tit_nome')?.value || '';
+        cfF    = document.getElementById('fam_tit_cf')?.value   || '';
+        natoA  = document.getElementById('fam_tit_nato_a')?.value || '';
+        prov   = document.getElementById('fam_tit_prov')?.value  || '';
+        natoIl = document.getElementById('fam_tit_nato_il')?.value || '';
+        periodo= document.getElementById('fam_tit_periodo')?.value || '';
+        note   = document.getElementById('fam_tit_note')?.value  || '';
       } else {
-        const sel = card.querySelector('select');
-        parente = sel ? sel.value : "Familiare";
+        const n = card.id.replace('fam_','');
+        parentela = document.getElementById(`fam_${n}_parentela`)?.value || '';
+        nomeF  = document.getElementById(`fam_${n}_nome`)?.value   || '';
+        cfF    = document.getElementById(`fam_${n}_cf`)?.value     || '';
+        natoA  = document.getElementById(`fam_${n}_nato_a`)?.value || '';
+        prov   = document.getElementById(`fam_${n}_prov`)?.value   || '';
+        natoIl = document.getElementById(`fam_${n}_nato_il`)?.value|| '';
+        periodo= document.getElementById(`fam_${n}_periodo`)?.value|| '';
+        note   = document.getElementById(`fam_${n}_note`)?.value   || '';
       }
-      
-      // Cerchiamo i campi all'interno della card corrente
-      const nomeF = card.querySelector('input[id*="_nome"]')?.value || "";
-      const cfF = card.querySelector('input[id*="_cf"]')?.value || "";
-      const natoF = card.querySelector('input[id*="_nato_il"]')?.value || "";
-      
-      if(nomeF) infoFamiliari += `[${parente}: ${nomeF} - CF: ${cfF} - Nato: ${natoF}] `;
-    });
+      familiariArr.push(`[${parentela}: ${nomeF} | CF: ${cfF} | Nato: ${natoA} ${prov} il ${natoIl} | Periodo: ${periodo} | Note: ${note}]`);
 
-    // 3. Prepariamo il pacchetto dati completo
+      // Foto tessera familiare (se periodo != Nessuno)
+      const fotoId = idx===0 ? 'fam_tit_foto' : `fam_${card.id.replace('fam_','')}_foto`;
+      const fotoInp = document.getElementById(fotoId);
+      if(fotoInp && fotoInp.files[0] && periodo !== 'Nessuno'){
+        const b64 = await toBase64(fotoInp.files[0]);
+        fotoFamiliariArr.push({ nome: nomeF, data: b64, type: fotoInp.files[0].type });
+      }
+    }
+
+    // ── Pacchetto dati ───────────────────────────────────────────────────
     const dati = {
-      grado: document.getElementById('grado').value,
-      cognome: document.getElementById('cognome').value,
-      nome: document.getElementById('nome').value,
-      email: document.getElementById('email').value,
-      telefono: document.getElementById('telefono').value,
-      residenza: document.getElementById('residente_a').value + " (" + document.getElementById('provincia').value + ") " + document.getElementById('indirizzo').value,
-      stato_servizio: document.querySelector('input[name="stato"]:checked')?.value || "",
-      // Recupero ente in base allo stato selezionato
-      ente: document.getElementById('ente_localita')?.value || document.getElementById('specificare_altro')?.value || "",
-      // Veicoli con ID corretti dal tuo HTML
-      auto1: document.getElementById('marca_auto1').value + " " + document.getElementById('modello_auto1').value + " (" + document.getElementById('targa_auto1').value + ")",
-      auto2: document.getElementById('marca_auto2').value + " " + document.getElementById('modello_auto2').value + " (" + document.getElementById('targa_auto2').value + ")",
-      familiari: infoFamiliari
+      grado:          document.getElementById('grado').value,
+      cognome:        document.getElementById('cognome').value,
+      nome:           document.getElementById('nome').value,
+      email:          document.getElementById('email').value,
+      telefono:       document.getElementById('telefono').value,
+      residenza:      document.getElementById('residente_a').value + ' (' + document.getElementById('provincia').value + ') ' + document.getElementById('indirizzo').value,
+      stato_servizio: document.querySelector('input[name="stato"]:checked')?.value || '',
+      ente:           document.getElementById('forza_armata_servizio')?.value ||
+                      document.getElementById('forza_armata_quiescenza')?.value ||
+                      document.getElementById('forza_armata_defunto')?.value || '',
+      ente_localita:  document.getElementById('ente_localita')?.value || document.getElementById('specificare_altro')?.value || '',
+      auto1:          [document.getElementById('marca_auto1').value, document.getElementById('modello_auto1').value, document.getElementById('targa_auto1').value].filter(Boolean).join(' '),
+      auto2:          [document.getElementById('marca_auto2').value, document.getElementById('modello_auto2').value, document.getElementById('targa_auto2').value].filter(Boolean).join(' '),
+      familiari:      familiariArr.join('\n'),
+      fotoFamiliari:  fotoFamiliariArr
     };
 
-    // 4. Gestione Allegati
-    const fotoInput = document.getElementById('foto');
-    if(fotoInput && fotoInput.files[0]) {
-      dati.fotoFile = await toBase64(fotoInput.files[0]);
-      dati.fotoType = fotoInput.files[0].type;
-    }
+    // ── Foto titolare ────────────────────────────────────────────────────
+    const fotoInp = document.getElementById('foto');
+    if(fotoInp?.files[0]){ dati.fotoFile = await toBase64(fotoInp.files[0]); dati.fotoType = fotoInp.files[0].type; }
 
-    const docInput = document.getElementById('documento');
-    if(docInput && docInput.files[0]) {
-      dati.docFile = await toBase64(docInput.files[0]);
-      dati.docType = docInput.files[0].type;
-    }
+    // ── Documento comprovante ────────────────────────────────────────────
+    const docInp = document.getElementById('documento');
+    if(docInp?.files[0]){ dati.docFile = await toBase64(docInp.files[0]); dati.docType = docInp.files[0].type; }
 
-    // 5. Firma
-    const canvas = document.getElementById('firmaCanvas');
-    if (typeof firmaOk !== 'undefined' && firmaOk) {
-      dati.firmaFile = canvas.toDataURL("image/png").split(',')[1];
-    }
+    // ── Firma (documento identità o canvas) ─────────────────────────────
+    const docIdInp = document.getElementById('docIdentita');
+    if(docIdInp?.files[0]){ dati.firmaFile = await toBase64(docIdInp.files[0]); dati.firmaType = docIdInp.files[0].type; }
+    else if(firmaOk){ dati.firmaFile = document.getElementById('firmaCanvas').toDataURL('image/png').split(',')[1]; dati.firmaType = 'image/png'; }
 
-    // 6. INVIO A GOOGLE
-    fetch("https://script.google.com/macros/s/AKfycby8BTHpGIg0oaZ15kUTGLlCbQQUUfi7njVrID22kjZtUWME5fXUWtUzaVAjTQQ5S3r-/exec", {
+    // ── INVIO — text/plain è compatibile con no-cors e Apps Script ──────
+    fetch("https://script.google.com/macros/s/AKfycbz2pHMoO-pTJJ4Y2KAsR3I_Abb6WFxn_pGhkDGi4biWAk8gCftpv2cqRSiLVhad1y3t/exec", {
       method: "POST",
-      mode: "no-cors", 
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(dati)
     })
-    .then(() => {
+    .then(()=>{
       mostraMsg('successo', '✓ Domanda inviata con successo! I dati e gli allegati sono stati registrati.');
-      setTimeout(() => { location.reload(); }, 4000);
+      setTimeout(()=>{ location.reload(); }, 5000);
     })
-    .catch(err => {
-      mostraMsg('errore-msg', '⚠ Errore tecnico durante l\'invio. Verifica la connessione.');
+    .catch(err=>{
+      document.getElementById('btnInvia').disabled = false;
+      mostraMsg('errore-msg', '⚠ Errore di connessione. Verifica la rete e riprova.');
       console.error(err);
     });
   });
