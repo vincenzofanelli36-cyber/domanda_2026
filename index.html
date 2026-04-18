@@ -376,10 +376,14 @@
   <!-- 5 – NUCLEO FAMILIARE -->
   <div class="sezione">
     <div class="sezione-titolo">Nucleo Familiare</div>
-    <div class="dichiarazione-nucleo">
+    <div class="dichiarazione-nucleo" style="text-align:center;">
       Il sottoscritto, consapevole delle responsabilità penali cui può andare incontro in caso di dichiarazioni mendaci,<br>
       <em>D I C H I A R A</em><br>
       che il proprio nucleo familiare, <strong>INCLUSO IL TITOLARE</strong>, è composto da:
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;padding:10px 14px;background:#F9F7F2;border:1px solid var(--grigio-riga);border-radius:4px;">
+      <input type="checkbox" id="checkDichNucleo" style="margin-top:2px;flex-shrink:0;accent-color:var(--blu);width:16px;height:16px;cursor:pointer;">
+      <label for="checkDichNucleo" style="font-size:13px;line-height:1.5;cursor:pointer;">Ho letto e compreso la dichiarazione sostitutiva di atto notorio riportata sopra e ne confermo la veridicità.</label>
     </div>
     <div id="familiariContainer"></div>
     <button type="button" class="btn-aggiungi" id="btnAggiungiFamiliare">
@@ -428,6 +432,16 @@
   </div>
   <div class="messaggio" id="messaggioEsito"></div>
 
+</div>
+
+<!-- MODAL CONFERMA INVIO -->
+<div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">✅</div>
+    <div style="font-family:'EB Garamond',serif;font-size:20px;font-weight:600;color:var(--blu);margin-bottom:10px;">Domanda inviata con successo</div>
+    <div style="font-size:13px;color:var(--testo-soft);margin-bottom:28px;line-height:1.6;">La sua richiesta di tesseramento è stata trasmessa correttamente.<br>Riceverà conferma all'indirizzo email indicato.</div>
+    <button id="btnModalOk" style="background:var(--blu);color:var(--bianco);border:none;border-radius:3px;padding:12px 40px;font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.04em;">OK</button>
+  </div>
 </div>
 
 <!-- CONFIG – modifica solo questo blocco -->
@@ -795,6 +809,16 @@ const CONFIG = {
     document.querySelectorAll('[data-dich]').forEach(d=>{if(!d.checked)dichOk=false;});
     if(!dichOk){msgs.push(CONFIG.messaggi.erroreDichiarazioni);ok=false;}
 
+    // Checkbox dichiarazione nucleo familiare
+    const checkNucleo = document.getElementById('checkDichNucleo');
+    if(checkNucleo && !checkNucleo.checked){
+      msgs.push('È necessario confermare la dichiarazione sul nucleo familiare.');
+      checkNucleo.parentElement.style.borderColor='var(--rosso)';
+      ok=false;
+    } else if(checkNucleo) {
+      checkNucleo.parentElement.style.borderColor='';
+    }
+
     const docId=document.getElementById('docIdentita');
     if(!firmaOk&&(!docId||!docId.files.length)){msgs.push(CONFIG.messaggi.erroreFirma);ok=false;}
 
@@ -821,6 +845,7 @@ const CONFIG = {
 
     const familiariArr     = [];
     const fotoFamiliariArr = [];
+    const familiari_array  = [];   // strutturato per il backend (righe separate)
 
     for(const [idx, card] of [...document.querySelectorAll('.familiare-card')].entries()){
       let parentela, nomeF, cfF, natoA, natoIl, prov, periodo, note;
@@ -844,19 +869,18 @@ const CONFIG = {
         periodo= document.getElementById(`fam_${n}_periodo`)?.value|| '';
         note   = document.getElementById(`fam_${n}_note`)?.value   || '';
       }
-      familiariArr.push(`[${parentela}: ${nomeF} | CF: ${cfF} | Nato: ${natoA} ${prov} il ${natoIl} | Periodo: ${periodo} | Note: ${note}]`);
 
-      // Foto inclusa solo se periodo != Nessuno — nominata con CF del familiare
+      // Array strutturato per righe separate nel foglio
+      familiari_array.push({ parentela, nome: nomeF, cf: cfF, nato_a: natoA, prov, nato_il: natoIl, periodo, note });
+
+      // Foto: inclusa solo se periodo != Nessuno, nominata con CF familiare
       const fotoId  = idx===0 ? 'fam_tit_foto' : `fam_${card.id.replace('fam_','')}_foto`;
       const fotoInp = document.getElementById(fotoId);
       if(fotoInp && fotoInp.files[0] && periodo !== 'Nessuno'){
         const b64 = await toBase64(fotoInp.files[0]);
-        fotoFamiliariArr.push({
-          cf:   cfF,          // usato dal backend per nominare il file
-          nome: nomeF,
-          data: b64,
-          type: fotoInp.files[0].type
-        });
+        fotoFamiliariArr.push({ cf: cfF, nome: nomeF, data: b64, type: fotoInp.files[0].type });
+      } else {
+        fotoFamiliariArr.push(null); // mantiene allineamento indici con familiari_array
       }
     }
 
@@ -868,7 +892,11 @@ const CONFIG = {
       nome:                  document.getElementById('nome').value,
       email:                 document.getElementById('email').value,
       telefono:              document.getElementById('telefono').value,
-      residenza:             document.getElementById('residente_a').value + ' (' + document.getElementById('provincia').value + ') ' + document.getElementById('indirizzo').value,
+      // Campi residenza separati
+      residente_a:           document.getElementById('residente_a').value,
+      provincia:             document.getElementById('provincia').value,
+      cap:                   document.getElementById('cap').value,
+      indirizzo:             document.getElementById('indirizzo').value,
       stato_servizio:        document.querySelector('input[name="stato"]:checked')?.value || '',
       ente:                  document.getElementById('forza_armata_servizio')?.value ||
                              document.getElementById('forza_armata_quiescenza')?.value ||
@@ -876,9 +904,9 @@ const CONFIG = {
       ente_localita:         document.getElementById('ente_localita')?.value || document.getElementById('specificare_altro')?.value || '',
       auto1:                 [document.getElementById('marca_auto1').value, document.getElementById('modello_auto1').value, document.getElementById('targa_auto1').value].filter(Boolean).join(' '),
       auto2:                 [document.getElementById('marca_auto2').value, document.getElementById('modello_auto2').value, document.getElementById('targa_auto2').value].filter(Boolean).join(' '),
-      familiari:             familiariArr.join('\n'),
-      fotoFamiliari:         fotoFamiliariArr,
-      codiceFiscaleTitolare: cfTitolare  // per nominare Doc_ e Firma_ nel backend
+      familiari_array:       familiari_array,
+      fotoFamiliari:         fotoFamiliariArr.filter(Boolean),
+      codiceFiscaleTitolare: cfTitolare
     };
 
     const docInp = document.getElementById('documento');
@@ -896,8 +924,14 @@ const CONFIG = {
     .then(text => {
       const res = JSON.parse(text);
       if (res.result === "success") {
-        mostraMsg('successo', '✓ Domanda inviata con successo!');
-        setTimeout(() => location.reload(), 5000);
+        document.getElementById('btnInvia').disabled = false;
+        // Mostra modal di conferma
+        const overlay = document.getElementById('modalOverlay');
+        overlay.style.display = 'flex';
+        document.getElementById('btnModalOk').onclick = () => {
+          overlay.style.display = 'none';
+          location.reload();
+        };
       } else {
         document.getElementById('btnInvia').disabled = false;
         mostraMsg('errore-msg', '⚠ Errore: ' + res.error);
