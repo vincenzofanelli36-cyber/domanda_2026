@@ -434,6 +434,31 @@
 
 </div>
 
+<!-- MODAL AVVISO APERTURA -->
+<div id="modalAvvisoApertura" style="display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.60);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:480px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.30);text-align:center;">
+    <div style="font-size:38px;margin-bottom:12px;">📋</div>
+    <div style="font-family:'EB Garamond',serif;font-size:19px;font-weight:600;color:var(--blu);margin-bottom:14px;line-height:1.3;">Attenzione: documenti necessari</div>
+    <div style="font-size:13px;color:var(--testo);line-height:1.7;margin-bottom:10px;text-align:left;">
+      Per poter compilare e inviare correttamente il modulo di tesseramento è <strong>indispensabile</strong> avere a disposizione:
+    </div>
+    <ul style="font-size:13px;color:var(--testo);line-height:1.8;margin-bottom:16px;text-align:left;padding-left:20px;">
+      <li>📷 <strong>Una foto tessera recente e nitida</strong> per ogni componente del nucleo familiare per cui si richiede il tesseramento (inclusi i minori)</li>
+      <li>📄 <strong>Documenti comprovanti</strong>, se il tuo stato di servizio è <em>in quiescenza</em>, <em>vedovo/a</em> o altro</li>
+      <li>🪪 <strong>Documento d'identità valido</strong> oppure firma digitale (da apporre in calce al modulo)</li>
+    </ul>
+    <div style="font-size:12px;color:var(--testo-soft);margin-bottom:24px;font-style:italic;">
+      Preparare tutti i file prima di iniziare evita interruzioni durante la compilazione.
+    </div>
+    <button id="btnChiudiAvviso" style="background:var(--blu);color:var(--bianco);border:none;border-radius:3px;padding:12px 48px;font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.04em;transition:background .2s;">Ho capito, procedo</button>
+  </div>
+</div>
+<script>
+  document.getElementById('btnChiudiAvviso').addEventListener('click', function(){
+    document.getElementById('modalAvvisoApertura').style.display = 'none';
+  });
+</script>
+
 <!-- MODAL CONFERMA INVIO -->
 <div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center;">
