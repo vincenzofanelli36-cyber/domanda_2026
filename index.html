@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Domanda di Tesseramento 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<!-- jsPDF per generazione PDF lato browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --blu:        #1A3A6B;
@@ -223,10 +225,10 @@
     letter-spacing:.04em; padding:12px 28px; border-radius:3px; cursor:pointer;
     border:none; transition:all .2s; display:flex; align-items:center; gap:8px;
   }
-  .btn-invia { background:var(--blu); color:var(--bianco); box-shadow:0 2px 8px rgba(26,58,107,.25); }
+  .btn-invia    { background:var(--blu); color:var(--bianco); box-shadow:0 2px 8px rgba(26,58,107,.25); }
   .btn-invia:hover { background:var(--blu-light); box-shadow:0 4px 14px rgba(26,58,107,.35); }
-  .btn-stampa { background:var(--bianco); color:var(--blu); border:1.5px solid var(--blu); }
-  .btn-stampa:hover { background:#EEF3FB; }
+  .btn-completa { background:var(--blu); color:var(--bianco); box-shadow:0 2px 8px rgba(26,58,107,.25); }
+  .btn-completa:hover { background:var(--blu-light); }
   .btn:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
 
   .messaggio {
@@ -239,13 +241,39 @@
   .divider { border:none; border-top:1px solid var(--grigio-riga); margin:24px 0; }
   .nota-campo { font-size:11px; color:var(--testo-soft); margin-top:4px; font-style:italic; }
 
+  /* ── Pannello email approvazione (modalità stampa) ─────────────────── */
+  #pannelloApprovazione {
+    display:none; margin-top:24px; padding:20px 24px;
+    background:#F2F5FB; border:1px solid #C4D0E8; border-radius:6px;
+    animation:slideIn .25s ease;
+  }
+  #pannelloApprovazione .pannello-titolo {
+    font-family:'EB Garamond',serif; font-size:16px; font-weight:600;
+    color:var(--blu); margin-bottom:10px;
+  }
+  #pannelloApprovazione .pannello-info {
+    font-size:12px; color:var(--testo-soft); margin-bottom:14px; line-height:1.6;
+  }
+  #pannelloApprovazione .avviso-mail {
+    font-size:12px; color:#7A5C00; background:#FFF8E1; border:1px solid #F0D060;
+    border-radius:3px; padding:8px 12px; margin-top:10px; line-height:1.5;
+  }
+  #btnConfermaCompleta {
+    margin-top:16px; background:var(--blu); color:var(--bianco);
+    border:none; border-radius:3px; padding:11px 28px;
+    font-family:'Source Sans 3',sans-serif; font-size:14px; font-weight:600;
+    cursor:pointer; letter-spacing:.04em; transition:background .2s;
+  }
+  #btnConfermaCompleta:hover { background:var(--blu-light); }
+  #btnConfermaCompleta:disabled { opacity:.4; cursor:not-allowed; }
+
   @media print {
     body { background:white; padding:0; font-size:11px; }
     .intestazione { background:white !important; color:black !important; border:1px solid #333; -webkit-print-color-adjust:exact; }
     .intestazione-titolo { color:black !important; }
     .intestazione-sottotitolo,.intestazione-nota { color:#555 !important; }
     .form-wrap { box-shadow:none; border:none; padding:10px 0; }
-    .btn-aggiungi,.azioni-wrap,.btn-cancella-firma { display:none !important; }
+    .btn-aggiungi,.azioni-wrap,.btn-cancella-firma,#pannelloApprovazione { display:none !important; }
     canvas#firmaCanvas { border:1px solid #999; }
     .radio-card.selezionato { background:#f0f0f0 !important; -webkit-print-color-adjust:exact; }
   }
@@ -341,7 +369,7 @@
     </div>
   </div>
 
-  <!-- 3 – DOCUMENTI (solo documento comprovante; foto gestita nel nucleo) -->
+  <!-- 3 – DOCUMENTI -->
   <div class="sezione">
     <div class="sezione-titolo">Documenti</div>
     <div class="griglia g1">
@@ -424,13 +452,33 @@
 
   <!-- AZIONI -->
   <div class="azioni-wrap">
-    <button type="button" class="btn btn-stampa" id="btnStampa" style="display:none">🖨 Stampa modulo</button>
-    <button type="button" class="btn btn-invia"  id="btnInvia"  style="display:none">✉ Invia domanda</button>
+    <button type="button" class="btn btn-completa" id="btnCompleta" style="display:none">📋 Completa domanda</button>
+    <button type="button" class="btn btn-invia"    id="btnInvia"   style="display:none">✉ Invia domanda</button>
     <div id="btnPlaceholder" style="font-size:13px;color:var(--testo-soft);align-self:center;font-style:italic">
-      Seleziona la Forza Armata per abilitare l'invio o la stampa
+      Seleziona la Forza Armata per abilitare l'invio o il completamento
     </div>
   </div>
   <div class="messaggio" id="messaggioEsito"></div>
+
+  <!-- PANNELLO EMAIL APPROVAZIONE (solo modalità stampa) -->
+  <div id="pannelloApprovazione">
+    <div class="pannello-titolo">📧 Invio per approvazione</div>
+    <div class="pannello-info">
+      La tua categoria richiede il visto del Capo Reparto o della Segreteria.<br>
+      Inserisci qui sotto l'indirizzo email del tuo responsabile a cui inviare la domanda per approvazione.<br><br>
+      <strong>Se non desideri inviare al responsabile</strong>, lascia il campo vuoto o inserisci testo non valido:
+      il PDF della domanda verrà inviato <em>solo alla tua email</em> e potrai stamparlo autonomamente.
+    </div>
+    <div class="campo">
+      <label>Email del Capo Reparto / Segreteria (facoltativa)</label>
+      <input type="text" id="emailApprovazione" placeholder="es. segreteria.reparto@esercito.difesa.it">
+    </div>
+    <div class="avviso-mail">
+      ⚠ <strong>Attenzione:</strong> un indirizzo email errato o inesatto impedirà la consegna della domanda al destinatario.
+      Verifica attentamente l'indirizzo prima di procedere.
+    </div>
+    <button type="button" id="btnConfermaCompleta">Invia PDF →</button>
+  </div>
 
 </div>
 
@@ -461,11 +509,28 @@
 
 <!-- MODAL CONFERMA INVIO -->
 <div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center;">
+  <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:440px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center;">
     <div style="font-size:40px;margin-bottom:12px;">✅</div>
-    <div style="font-family:'EB Garamond',serif;font-size:20px;font-weight:600;color:var(--blu);margin-bottom:10px;">Domanda inviata con successo</div>
-    <div style="font-size:13px;color:var(--testo-soft);margin-bottom:28px;line-height:1.6;">La sua richiesta di tesseramento è stata trasmessa correttamente.</div>
+    <div style="font-family:'EB Garamond',serif;font-size:20px;font-weight:600;color:var(--blu);margin-bottom:10px;" id="modalTitolo">Domanda inviata con successo</div>
+    <div style="font-size:13px;color:var(--testo-soft);margin-bottom:28px;line-height:1.6;" id="modalTesto">La sua richiesta di tesseramento è stata trasmessa correttamente.</div>
     <button id="btnModalOk" style="background:var(--blu);color:var(--bianco);border:none;border-radius:3px;padding:12px 40px;font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.04em;">OK</button>
+  </div>
+</div>
+
+<!-- MODAL CONFERMA SOLO EMAIL UTENTE (nessun indirizzo approvazione) -->
+<div id="modalSoloUtente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--bianco);border-radius:6px;padding:36px 40px;max-width:460px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center;">
+    <div style="font-size:36px;margin-bottom:12px;">ℹ️</div>
+    <div style="font-family:'EB Garamond',serif;font-size:18px;font-weight:600;color:var(--blu);margin-bottom:12px;line-height:1.3;">Nessun indirizzo di approvazione</div>
+    <div style="font-size:13px;color:var(--testo-soft);margin-bottom:24px;line-height:1.6;">
+      Non hai inserito un indirizzo email valido per l'approvazione.<br>
+      Il PDF della domanda verrà inviato <strong>solo alla tua email</strong>.<br><br>
+      Vuoi procedere?
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button id="btnSoloUtenteNo" style="background:none;border:1.5px solid var(--blu);color:var(--blu);border-radius:3px;padding:10px 28px;font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">← Torna indietro</button>
+      <button id="btnSoloUtenteSi" style="background:var(--blu);color:var(--bianco);border:none;border-radius:3px;padding:10px 28px;font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Sì, procedi</button>
+    </div>
   </div>
 </div>
 
@@ -484,7 +549,6 @@ const CONFIG = {
     { nome: "Altro Corpo",           modalita: "stampa" }
   ],
 
-  // "Nessuno" deve restare come prima voce. Aggiungi turni liberamente.
   periodi: ["Nessuno", "Intero", "Turno 1", "Turno 2"],
 
   emailDestinatario: "vincenzofanelli36@gmail.com",
@@ -521,6 +585,7 @@ const CONFIG = {
 <script>
 (function(){
 
+  // ── Popola select FF.AA. ─────────────────────────────────────────────
   function popolaFA(id){
     const s=document.getElementById(id); if(!s)return;
     CONFIG.forzeArmate.forEach(fa=>{ const o=document.createElement('option'); o.value=fa.nome; o.textContent=fa.nome; s.appendChild(o); });
@@ -531,6 +596,7 @@ const CONFIG = {
     return `<select id="${id}">${CONFIG.periodi.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>`;
   }
 
+  // ── Validazione file ─────────────────────────────────────────────────
   function validaFile(file,formati,maxMB){
     if(!file)return null;
     if(!formati.includes(file.type)) return 'Formato non supportato: usa JPG, PNG o PDF.';
@@ -550,6 +616,7 @@ const CONFIG = {
   setupUpload('documento','nomeDocumento',CONFIG.formatiDocumento,CONFIG.maxFileSizeMB);
   setupUpload('docIdentita','nomeDocIdentita',CONFIG.formatiDocumento,CONFIG.maxFileSizeMB);
 
+  // ── Indennità accompagnamento ────────────────────────────────────────
   window.toggleAccompagnamento=function(nome){
     const val=document.querySelector(`input[name="acc_${nome}"]:checked`);
     const box=document.getElementById(`acc_doc_${nome}`);
@@ -583,6 +650,7 @@ const CONFIG = {
       </div>`;
   }
 
+  // ── Dichiarazioni ────────────────────────────────────────────────────
   const lista=document.getElementById('dichiarazioniLista');
   CONFIG.dichiarazioni.forEach((t,i)=>{
     const li=document.createElement('li');
@@ -590,6 +658,7 @@ const CONFIG = {
     lista.appendChild(li);
   });
 
+  // ── Cambio stato di servizio ─────────────────────────────────────────
   document.querySelectorAll('input[name="stato"]').forEach(r=>{
     r.addEventListener('change',function(){
       document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('selezionato'));
@@ -600,11 +669,18 @@ const CONFIG = {
       document.getElementById('lblDocObbligatorio').style.display=rich?'':'none';
       document.getElementById('notaDocumento').textContent=rich?'Obbligatorio per la categoria selezionata':'Facoltativo per chi è in servizio';
       aggiornaRigaTitolare(); aggiornaPulsanti();
+      // Nascondi pannello approvazione se cambia FF.AA.
+      document.getElementById('pannelloApprovazione').style.display='none';
     });
   });
-  ['forza_armata_servizio','forza_armata_quiescenza','forza_armata_defunto'].forEach(id=>
-    document.getElementById(id).addEventListener('change',aggiornaPulsanti));
+  ['forza_armata_servizio','forza_armata_quiescenza','forza_armata_defunto'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', ()=>{
+      aggiornaPulsanti();
+      document.getElementById('pannelloApprovazione').style.display='none';
+    });
+  });
 
+  // ── Canvas firma ─────────────────────────────────────────────────────
   const canvas=document.getElementById('firmaCanvas'),ctx=canvas.getContext('2d');
   let dis=false,firmaOk=false;
   function pos(e){const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*(canvas.width/r.width),y:(s.clientY-r.top)*(canvas.height/r.height)};}
@@ -617,6 +693,7 @@ const CONFIG = {
   canvas.addEventListener('touchend',  ()=>dis=false);
   document.getElementById('btnCancellaFirma').addEventListener('click',()=>{ctx.clearRect(0,0,canvas.width,canvas.height);firmaOk=false;});
 
+  // ── Nucleo familiare ─────────────────────────────────────────────────
   let cnt=0;
 
   function creaRigaTitolare(){
@@ -713,7 +790,6 @@ const CONFIG = {
     else el.textContent='✓ '+inp.files[0].name;
   };
 
-  // Listener periodo: mostra/nasconde foto in base al valore selezionato
   document.getElementById('familiariContainer').addEventListener('change', function(e){
     if(!e.target.id) return;
     if(!e.target.id.endsWith('_periodo') && e.target.id !== 'fam_tit_periodo') return;
@@ -728,6 +804,7 @@ const CONFIG = {
   cont.appendChild(creaRigaTitolare());
   document.getElementById('btnAggiungiFamiliare').addEventListener('click',()=>{cnt++;cont.appendChild(creaRigaFamiliare(cnt));});
 
+  // ── Modalità pulsanti ────────────────────────────────────────────────
   function getModalita(){
     const stato=document.querySelector('input[name="stato"]:checked'); if(!stato)return null;
     let nome='';
@@ -742,13 +819,14 @@ const CONFIG = {
 
   function aggiornaPulsanti(){
     const m=getModalita();
-    const bi=document.getElementById('btnInvia'),bs=document.getElementById('btnStampa'),ph=document.getElementById('btnPlaceholder');
-    if(!m){bi.style.display='none';bs.style.display='none';ph.style.display='block';return;}
+    const bi=document.getElementById('btnInvia'),bc=document.getElementById('btnCompleta'),ph=document.getElementById('btnPlaceholder');
+    if(!m){bi.style.display='none';bc.style.display='none';ph.style.display='block';return;}
     ph.style.display='none';
     bi.style.display=m==='invia' ?'flex':'none';
-    bs.style.display=m==='stampa'?'flex':'none';
+    bc.style.display=m==='stampa'?'flex':'none';
   }
 
+  // ── Validazione form ─────────────────────────────────────────────────
   function valida(){
     let ok=true; const msgs=[]; let campiMancanti=false;
 
@@ -810,7 +888,6 @@ const CONFIG = {
       if(f&&!f.files.length){msgs.push('Allegare documentazione indennità di accompagnamento per il Titolare.');ok=false;}
     }
 
-    // Foto obbligatoria se periodo != Nessuno (valida per titolare e tutti i familiari)
     document.querySelectorAll('.familiare-card').forEach((card, idx)=>{
       const n = card.id.replace('fam_','');
       const periodoId = idx===0 ? 'fam_tit_periodo'        : `fam_${n}_periodo`;
@@ -834,7 +911,6 @@ const CONFIG = {
     document.querySelectorAll('[data-dich]').forEach(d=>{if(!d.checked)dichOk=false;});
     if(!dichOk){msgs.push(CONFIG.messaggi.erroreDichiarazioni);ok=false;}
 
-    // Checkbox dichiarazione nucleo familiare
     const checkNucleo = document.getElementById('checkDichNucleo');
     if(checkNucleo && !checkNucleo.checked){
       msgs.push('È necessario confermare la dichiarazione sul nucleo familiare.');
@@ -856,13 +932,264 @@ const CONFIG = {
     el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 
-  document.getElementById('btnInvia').addEventListener('click', async function(){
-    const {ok, msgs} = valida();
-    if(!ok){ mostraMsg('errore-msg', '⚠ ' + msgs.join(' – ')); return; }
+  // ════════════════════════════════════════════════════════════════════
+  // GENERAZIONE PDF con jsPDF
+  // ════════════════════════════════════════════════════════════════════
+  function generaPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    mostraMsg('successo', '⏳ Elaborazione allegati in corso... attendi (circa 15-20 secondi).');
-    document.getElementById('btnInvia').disabled = true;
+    const BLU   = [26, 58, 107];
+    const NERO  = [28, 28, 28];
+    const GRIGIO= [90, 90, 90];
+    const ORO   = [184, 151, 42];
+    const W     = 210;
+    const ML    = 18; // margine sinistro
+    const MR    = 18; // margine destro
+    const CW    = W - ML - MR; // larghezza contenuto
+    let y       = 0;
 
+    // ── Helper: vai a capo se necessario ──
+    function checkPage(altezza) {
+      if (y + altezza > 275) { doc.addPage(); y = 18; }
+    }
+
+    // ── Intestazione ──────────────────────────────────────────────
+    doc.setFillColor(...BLU);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setDrawColor(...ORO);
+    doc.setLineWidth(1);
+    doc.line(0, 0, W, 0);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('RICHIESTA DI TESSERAMENTO – STAGIONE ESTIVA 2026', W/2, 11, {align:'center'});
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    doc.text('Distaccamento Straordinario A.M. di Torre a Mare', W/2, 18, {align:'center'});
+
+    const dataInvio = new Date().toLocaleString('it-IT');
+    doc.setFontSize(8);
+    doc.setTextColor(180, 180, 180);
+    doc.text('Documento generato il ' + dataInvio, W/2, 24, {align:'center'});
+
+    y = 36;
+
+    // ── Helper: titolo sezione ──
+    function titoloSezione(testo) {
+      checkPage(14);
+      doc.setDrawColor(...ORO);
+      doc.setLineWidth(0.4);
+      doc.line(ML, y, W - MR, y);
+      y += 1;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...BLU);
+      doc.text(testo.toUpperCase(), ML, y + 5);
+      y += 9;
+      doc.setLineWidth(0.2);
+      doc.setDrawColor(200, 198, 190);
+      doc.line(ML, y, W - MR, y);
+      y += 4;
+    }
+
+    // ── Helper: riga campo-valore ──
+    function campo(etichetta, valore, larghezza) {
+      const lw = larghezza || CW;
+      checkPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...GRIGIO);
+      doc.text(etichetta.toUpperCase(), ML, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(...NERO);
+      const val = (valore || '—').toString();
+      const lines = doc.splitTextToSize(val, lw);
+      lines.forEach(line => {
+        checkPage(6);
+        doc.text(line, ML, y);
+        y += 5.5;
+      });
+      y += 1;
+    }
+
+    // ── Helper: due campi affiancati ──
+    function dueCampi(et1, v1, et2, v2) {
+      checkPage(14);
+      const hw = (CW / 2) - 4;
+      // sinistra
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...GRIGIO);
+      doc.text(et1.toUpperCase(), ML, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...NERO);
+      doc.text((v1||'—').toString(), ML, y+4);
+      // destra
+      const x2 = ML + CW/2 + 2;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...GRIGIO);
+      doc.text(et2.toUpperCase(), x2, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...NERO);
+      doc.text((v2||'—').toString(), x2, y+4);
+      y += 12;
+    }
+
+    // ── Helper: tre campi affiancati ──
+    function treCampi(et1,v1,et2,v2,et3,v3) {
+      checkPage(14);
+      const tw = CW/3 - 3;
+      [[et1,v1,ML],[et2,v2,ML+CW/3+1.5],[et3,v3,ML+(CW/3)*2+3]].forEach(([et,v,x])=>{
+        doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...GRIGIO);
+        doc.text(et.toUpperCase(),x,y);
+        doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...NERO);
+        doc.text((v||'—').toString(),x,y+4);
+      });
+      y+=12;
+    }
+
+    // Raccolta dati dal form
+    const grado     = document.getElementById('grado')?.value        || '';
+    const cognome   = document.getElementById('cognome')?.value      || '';
+    const nome      = document.getElementById('nome')?.value         || '';
+    const email     = document.getElementById('email')?.value        || '';
+    const telefono  = document.getElementById('telefono')?.value     || '';
+    const residente = document.getElementById('residente_a')?.value  || '';
+    const provincia = document.getElementById('provincia')?.value    || '';
+    const cap       = document.getElementById('cap')?.value          || '';
+    const indirizzo = document.getElementById('indirizzo')?.value    || '';
+
+    const statoEl   = document.querySelector('input[name="stato"]:checked');
+    const statoVal  = statoEl?.value || '';
+    const statoMap  = {in_servizio:'In servizio',in_quiescenza:'In quiescenza',vedovo:'Vedovo/a',altro:'Altro'};
+    const statoTxt  = statoMap[statoVal] || '—';
+    const ente      = document.getElementById('forza_armata_servizio')?.value ||
+                      document.getElementById('forza_armata_quiescenza')?.value ||
+                      document.getElementById('forza_armata_defunto')?.value || '';
+    const enteLocalita = document.getElementById('ente_localita')?.value ||
+                         document.getElementById('specificare_altro')?.value || '';
+
+    const auto1 = [document.getElementById('marca_auto1')?.value, document.getElementById('modello_auto1')?.value, document.getElementById('targa_auto1')?.value].filter(Boolean).join(' ');
+    const auto2 = [document.getElementById('marca_auto2')?.value, document.getElementById('modello_auto2')?.value, document.getElementById('targa_auto2')?.value].filter(Boolean).join(' ');
+
+    // ── SEZIONE 1: Dati Titolare ──────────────────────────────────
+    titoloSezione('1. Dati del Titolare');
+    treCampi('Grado', grado, 'Cognome', cognome, 'Nome', nome);
+    dueCampi('Email', email, 'Telefono', telefono);
+    treCampi('Residente a', residente, 'Provincia', provincia, 'CAP', cap);
+    campo('Indirizzo', indirizzo);
+
+    // ── SEZIONE 2: Stato di Servizio ─────────────────────────────
+    titoloSezione('2. Stato di Servizio');
+    dueCampi('Stato', statoTxt, 'FF.AA. / Corpo', ente);
+    if(enteLocalita) campo('Ente / Località / Specificare', enteLocalita);
+
+    // Dati defunto se vedovo
+    if(statoVal==='vedovo'){
+      treCampi('Grado del defunto',
+        document.getElementById('grado_defunto')?.value||'',
+        'Cognome del defunto',
+        document.getElementById('cognome_defunto')?.value||'',
+        'Nome del defunto',
+        document.getElementById('nome_defunto')?.value||'');
+    }
+
+    // ── SEZIONE 3: Autoveicoli ────────────────────────────────────
+    if(auto1||auto2){
+      titoloSezione('3. Autoveicoli / Ciclomotori');
+      if(auto1) campo('Veicolo 1', auto1);
+      if(auto2) campo('Veicolo 2', auto2);
+    }
+
+    // ── SEZIONE 4: Nucleo Familiare ───────────────────────────────
+    titoloSezione('4. Nucleo Familiare');
+
+    const cards = document.querySelectorAll('.familiare-card');
+    cards.forEach((card, idx)=>{
+      checkPage(20);
+      const isT = idx === 0;
+      const n   = card.id.replace('fam_','');
+
+      const parentela = isT ? 'Titolare' : (document.getElementById(`fam_${n}_parentela`)?.value || '');
+      const nomeF     = isT ? `${cognome} ${nome}`.trim() : (document.getElementById(`fam_${n}_nome`)?.value || '');
+      const cf        = isT ? (document.getElementById('fam_tit_cf')?.value||'') : (document.getElementById(`fam_${n}_cf`)?.value||'');
+      const natoA     = isT ? (document.getElementById('fam_tit_nato_a')?.value||'') : (document.getElementById(`fam_${n}_nato_a`)?.value||'');
+      const prov      = isT ? (document.getElementById('fam_tit_prov')?.value||'') : (document.getElementById(`fam_${n}_prov`)?.value||'');
+      const natoIl    = isT ? (document.getElementById('fam_tit_nato_il')?.value||'') : (document.getElementById(`fam_${n}_nato_il`)?.value||'');
+      const periodo   = isT ? (document.getElementById('fam_tit_periodo')?.value||'') : (document.getElementById(`fam_${n}_periodo`)?.value||'');
+      const note      = isT ? (document.getElementById('fam_tit_note')?.value||'') : (document.getElementById(`fam_${n}_note`)?.value||'');
+
+      // Intestazione familiare
+      doc.setFillColor(242, 245, 251);
+      doc.rect(ML, y-1, CW, 7, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...BLU);
+      doc.text((isT?'Titolare':('Familiare '+idx))+' – '+parentela, ML+2, y+4);
+      y += 10;
+
+      dueCampi('Cognome e Nome', nomeF, 'Codice Fiscale', cf);
+      treCampi('Nato/a a', natoA, 'Provincia', prov, 'Nato/a il', natoIl);
+      dueCampi('Periodo richiesto', periodo, 'Note', note);
+      y += 2;
+    });
+
+    // ── SEZIONE 5: Dichiarazioni ──────────────────────────────────
+    titoloSezione('5. Dichiarazioni');
+    CONFIG.dichiarazioni.forEach((d, i) => {
+      checkPage(12);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...NERO);
+      const lines = doc.splitTextToSize(`${i+1}. Il sottoscritto dichiara ${d}`, CW - 6);
+      doc.text('✓', ML, y); // spunta
+      lines.forEach((line, li) => {
+        checkPage(6);
+        doc.text(line, ML+5, y);
+        y += 5;
+      });
+      y += 2;
+    });
+
+    // ── SEZIONE 6: Firma ──────────────────────────────────────────
+    titoloSezione('6. Firma');
+    checkPage(30);
+
+    const docIdInp = document.getElementById('docIdentita');
+    if(firmaOk){
+      // Includi immagine firma dal canvas
+      const firmaData = canvas.toDataURL('image/png');
+      try {
+        doc.addImage(firmaData, 'PNG', ML, y, 60, 20);
+        y += 24;
+      } catch(e) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...GRIGIO);
+        doc.text('Firma digitale apposta sul modulo originale', ML, y); y += 8;
+      }
+    } else if(docIdInp?.files[0]) {
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...GRIGIO);
+      doc.text('Documento d\'identità allegato al modulo', ML, y); y += 8;
+    }
+
+    // Data e luogo
+    checkPage(12);
+    const oggi = new Date().toLocaleDateString('it-IT');
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...NERO);
+    doc.text('Data: ' + oggi, ML, y); y += 6;
+    doc.text('Firma: ' + cognome.toUpperCase() + ' ' + nome.toUpperCase(), ML, y); y += 10;
+
+    // ── Footer ────────────────────────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for(let p=1; p<=totalPages; p++){
+      doc.setPage(p);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
+      doc.text('Domanda di Tesseramento 2026 – Distaccamento A.M. Torre a Mare', ML, 290);
+      doc.text('Pag. '+p+'/'+totalPages, W-MR, 290, {align:'right'});
+    }
+
+    return doc.output('datauristring').split(',')[1]; // restituisce base64
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // RACCOLTA DATI FORM (comune a invia e stampa)
+  // ════════════════════════════════════════════════════════════════════
+  async function raccogliDati() {
     const toBase64 = file => new Promise((res,rej)=>{
       const r=new FileReader(); r.readAsDataURL(file);
       r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej;
@@ -870,7 +1197,7 @@ const CONFIG = {
 
     const familiariArr     = [];
     const fotoFamiliariArr = [];
-    const familiari_array  = [];   // strutturato per il backend (righe separate)
+    const familiari_array  = [];
 
     for(const [idx, card] of [...document.querySelectorAll('.familiare-card')].entries()){
       let parentela, nomeF, cfF, natoA, natoIl, prov, periodo, note;
@@ -894,18 +1221,15 @@ const CONFIG = {
         periodo= document.getElementById(`fam_${n}_periodo`)?.value|| '';
         note   = document.getElementById(`fam_${n}_note`)?.value   || '';
       }
-
-      // Array strutturato per righe separate nel foglio
       familiari_array.push({ parentela, nome: nomeF, cf: cfF, nato_a: natoA, prov, nato_il: natoIl, periodo, note });
 
-      // Foto: inclusa solo se periodo != Nessuno, nominata con CF familiare
       const fotoId  = idx===0 ? 'fam_tit_foto' : `fam_${card.id.replace('fam_','')}_foto`;
       const fotoInp = document.getElementById(fotoId);
       if(fotoInp && fotoInp.files[0] && periodo !== 'Nessuno'){
         const b64 = await toBase64(fotoInp.files[0]);
         fotoFamiliariArr.push({ cf: cfF, nome: nomeF, data: b64, type: fotoInp.files[0].type });
       } else {
-        fotoFamiliariArr.push(null); // mantiene allineamento indici con familiari_array
+        fotoFamiliariArr.push(null);
       }
     }
 
@@ -917,7 +1241,6 @@ const CONFIG = {
       nome:                  document.getElementById('nome').value,
       email:                 document.getElementById('email').value,
       telefono:              document.getElementById('telefono').value,
-      // Campi residenza separati
       residente_a:           document.getElementById('residente_a').value,
       provincia:             document.getElementById('provincia').value,
       cap:                   document.getElementById('cap').value,
@@ -937,37 +1260,137 @@ const CONFIG = {
     const docInp = document.getElementById('documento');
     if(docInp?.files[0]){ dati.docFile = await toBase64(docInp.files[0]); dati.docType = docInp.files[0].type; }
 
+    // Firma: solo per la modalità invia (non serve per stampa dove va nel PDF)
     const docIdInp = document.getElementById('docIdentita');
     if(docIdInp?.files[0]){ dati.firmaFile = await toBase64(docIdInp.files[0]); dati.firmaType = docIdInp.files[0].type; }
-    else if(firmaOk){ dati.firmaFile = document.getElementById('firmaCanvas').toDataURL('image/png').split(',')[1]; dati.firmaType = 'image/png'; }
+    else if(firmaOk){ dati.firmaFile = canvas.toDataURL('image/png').split(',')[1]; dati.firmaType = 'image/png'; }
 
-    fetch("https://script.google.com/macros/s/AKfycbz2pHMoO-pTJJ4Y2KAsR3I_Abb6WFxn_pGhkDGi4biWAk8gCftpv2cqRSiLVhad1y3t/exec", {
+    // Genera e allega PDF
+    dati.pdfBase64 = generaPDF();
+
+    return dati;
+  }
+
+  // ── Invio al backend ─────────────────────────────────────────────────
+  async function inviaAlBackend(dati) {
+    const risposta = await fetch("https://script.google.com/macros/s/AKfycbz2pHMoO-pTJJ4Y2KAsR3I_Abb6WFxn_pGhkDGi4biWAk8gCftpv2cqRSiLVhad1y3t/exec", {
       method: "POST",
       body: JSON.stringify(dati)
-    })
-    .then(res => res.text())
-    .then(text => {
-      const res = JSON.parse(text);
-      if (res.result === "success") {
-        document.getElementById('btnInvia').disabled = false;
-        // Mostra modal di conferma
+    });
+    const text = await risposta.text();
+    return JSON.parse(text);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // BOTTONE INVIA (modalità invia)
+  // ════════════════════════════════════════════════════════════════════
+  document.getElementById('btnInvia').addEventListener('click', async function(){
+    const {ok, msgs} = valida();
+    if(!ok){ mostraMsg('errore-msg', '⚠ ' + msgs.join(' – ')); return; }
+
+    mostraMsg('successo', '⏳ Elaborazione in corso... attendi (circa 20-30 secondi).');
+    this.disabled = true;
+
+    try {
+      const dati = await raccogliDati();
+      dati.modalita = 'invia';
+
+      const res = await inviaAlBackend(dati);
+      this.disabled = false;
+
+      if (res.result === 'success') {
+        document.getElementById('modalTitolo').textContent = 'Domanda inviata con successo';
+        document.getElementById('modalTesto').textContent  = 'La sua richiesta di tesseramento è stata trasmessa correttamente. Riceverà copia PDF della domanda all\'indirizzo email indicato.';
         const overlay = document.getElementById('modalOverlay');
         overlay.style.display = 'flex';
-        document.getElementById('btnModalOk').onclick = () => {
-          overlay.style.display = 'none';
-          location.reload();
-        };
+        document.getElementById('btnModalOk').onclick = () => { overlay.style.display='none'; location.reload(); };
       } else {
-        document.getElementById('btnInvia').disabled = false;
         mostraMsg('errore-msg', '⚠ Errore: ' + res.error);
       }
-    })
-    .catch(err => {
-      document.getElementById('btnInvia').disabled = false;
-      mostraMsg('errore-msg', '⚠ Errore di connessione o script.');
+    } catch(err) {
+      this.disabled = false;
+      mostraMsg('errore-msg', '⚠ Errore di connessione o elaborazione.');
       console.error(err);
-    });
+    }
   });
+
+  // ════════════════════════════════════════════════════════════════════
+  // BOTTONE COMPLETA (modalità stampa) – mostra pannello approvazione
+  // ════════════════════════════════════════════════════════════════════
+  document.getElementById('btnCompleta').addEventListener('click', function(){
+    const {ok, msgs} = valida();
+    if(!ok){ mostraMsg('errore-msg', '⚠ ' + msgs.join(' – ')); return; }
+
+    // Nascondi eventuale messaggio errore e mostra pannello
+    document.getElementById('messaggioEsito').className = 'messaggio';
+    const pannello = document.getElementById('pannelloApprovazione');
+    pannello.style.display = 'block';
+    pannello.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  // ── Bottone Conferma nel pannello approvazione ───────────────────────
+  document.getElementById('btnConfermaCompleta').addEventListener('click', async function(){
+    const emailApp = document.getElementById('emailApprovazione').value.trim();
+    const emailValida = emailApp.includes('@') && emailApp.includes('.');
+
+    if(!emailValida && emailApp !== '') {
+      // Testo inserito ma non è un'email valida → tratta come assenza
+    }
+
+    if(!emailValida) {
+      // Mostra modal conferma solo email utente
+      document.getElementById('modalSoloUtente').style.display = 'flex';
+      return;
+    }
+
+    // Email valida → procedi direttamente
+    await eseguiInvioStampa(emailValida ? emailApp : '');
+  });
+
+  document.getElementById('btnSoloUtenteNo').addEventListener('click', ()=>{
+    document.getElementById('modalSoloUtente').style.display='none';
+  });
+
+  document.getElementById('btnSoloUtenteSi').addEventListener('click', async ()=>{
+    document.getElementById('modalSoloUtente').style.display='none';
+    await eseguiInvioStampa('');
+  });
+
+  async function eseguiInvioStampa(emailApprovazione) {
+    const btn = document.getElementById('btnConfermaCompleta');
+    btn.disabled = true;
+    btn.textContent = '⏳ Elaborazione...';
+    mostraMsg('successo', '⏳ Generazione PDF e invio in corso... attendi (circa 20-30 secondi).');
+
+    try {
+      const dati = await raccogliDati();
+      dati.modalita         = 'stampa';
+      dati.emailApprovazione = emailApprovazione;
+
+      const res = await inviaAlBackend(dati);
+      btn.disabled = false;
+      btn.textContent = 'Invia PDF →';
+
+      if(res.result === 'success'){
+        document.getElementById('pannelloApprovazione').style.display='none';
+        const hasApp = !!emailApprovazione;
+        document.getElementById('modalTitolo').textContent = 'Domanda completata';
+        document.getElementById('modalTesto').textContent  = hasApp
+          ? `Il PDF della sua domanda è stato inviato al responsabile (${emailApprovazione}) e una copia è stata inviata alla sua email. Potrà stampare il PDF dalla copia ricevuta. Attenzione: verifichi che l'indirizzo indicato sia corretto per garantire la consegna.`
+          : 'Il PDF della sua domanda è stato inviato alla sua email. Potrà stamparlo direttamente dal PDF ricevuto.';
+        const overlay = document.getElementById('modalOverlay');
+        overlay.style.display = 'flex';
+        document.getElementById('btnModalOk').onclick = ()=>{ overlay.style.display='none'; location.reload(); };
+      } else {
+        mostraMsg('errore-msg', '⚠ Errore: ' + res.error);
+      }
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = 'Invia PDF →';
+      mostraMsg('errore-msg', '⚠ Errore di connessione o elaborazione.');
+      console.error(err);
+    }
+  }
 
 })();
 </script>
