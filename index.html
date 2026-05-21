@@ -551,7 +551,8 @@ const CONFIG = {
     { nome: "Altro Corpo",               modalita: "stampa", soloServizio: true }
   ],
 
-  periodi: ["Nessuno", "Intero", "Turno 1", "Turno 2"],
+  periodi:         ["Nessuno", "Intero", "Turno 1", "Turno 2"],
+  periodiRidotti:  ["Nessuno", "Turno 1", "Turno 2"],
 
   emailDestinatario: "torreamaream@gmail.com",
 
@@ -600,8 +601,32 @@ const CONFIG = {
   popolaFA('forza_armata_quiescenza',  false);  // quiescenza  → solo FF.AA. classiche
   popolaFA('forza_armata_defunto',     false);  // vedovo/a    → solo FF.AA. classiche
 
+  // ── Restituisce i periodi ammessi in base alla FF.AA. attualmente selezionata ──
+  function getPeriodi(){
+    const stato=document.querySelector('input[name="stato"]:checked');
+    let nome='';
+    if(stato){
+      if(stato.value==='in_servizio')        nome=document.getElementById('forza_armata_servizio')?.value||'';
+      else if(stato.value==='in_quiescenza') nome=document.getElementById('forza_armata_quiescenza')?.value||'';
+      else if(stato.value==='vedovo')        nome=document.getElementById('forza_armata_defunto')?.value||'';
+    }
+    return nome==='Aeronautica Militare' ? CONFIG.periodi : CONFIG.periodiRidotti;
+  }
+
   function selectPeriodi(id){
-    return `<select id="${id}">${CONFIG.periodi.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>`;
+    const opzioni=getPeriodi();
+    return `<select id="${id}">${opzioni.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>`;
+  }
+
+  // Aggiorna tutti i select periodo già presenti quando cambia la FF.AA. ──
+  function aggiornaPeriodiTutti(){
+    const opzioni=getPeriodi();
+    document.querySelectorAll('[id$="_periodo"]').forEach(sel=>{
+      const val=sel.value; // mantieni la selezione corrente se ancora valida
+      sel.innerHTML=opzioni.map(p=>`<option value="${p}">${p}</option>`).join('');
+      if(opzioni.includes(val)) sel.value=val;
+      else sel.value='Nessuno'; // "Intero" non disponibile → reset
+    });
   }
 
   // ── Validazione file ─────────────────────────────────────────────────
@@ -676,13 +701,14 @@ const CONFIG = {
       const rich=['in_quiescenza','vedovo','altro'].includes(this.value);
       document.getElementById('lblDocObbligatorio').style.display=rich?'':'none';
       document.getElementById('notaDocumento').textContent=rich?'Obbligatorio per la categoria selezionata':'Facoltativo per chi è in servizio';
-      aggiornaRigaTitolare(); aggiornaPulsanti();
+      aggiornaRigaTitolare(); aggiornaPulsanti(); aggiornaPeriodiTutti();
       // Nascondi pannello approvazione se cambia FF.AA.
       document.getElementById('pannelloApprovazione').style.display='none';
     });
   });
   ['forza_armata_servizio','forza_armata_quiescenza','forza_armata_defunto'].forEach(id=>{
     document.getElementById(id).addEventListener('change', ()=>{
+      aggiornaPeriodiTutti();
       aggiornaPulsanti();
       document.getElementById('pannelloApprovazione').style.display='none';
     });
@@ -1281,7 +1307,7 @@ const CONFIG = {
 
   // ── Invio al backend ─────────────────────────────────────────────────
   async function inviaAlBackend(dati) {
-    const risposta = await fetch("https://script.google.com/macros/s/AKfycby4QEb1ZgF0XbGBw0r47q6DPNSGl1tPd0qcahrze9HjRJNnAChiKN8RFhs66IJB8GA-/exec", {
+    const risposta = await fetch("https://script.google.com/macros/s/AKfycbz2pHMoO-pTJJ4Y2KAsR3I_Abb6WFxn_pGhkDGi4biWAk8gCftpv2cqRSiLVhad1y3t/exec", {
       method: "POST",
       body: JSON.stringify(dati)
     });
